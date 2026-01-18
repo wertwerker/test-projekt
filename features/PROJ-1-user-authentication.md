@@ -71,7 +71,7 @@ User-Authentifizierung mit Email/Passwort und Google OAuth, inklusive Email-Veri
 ### Rate Limiting & CAPTCHA
 - [ ] Nach 3 fehlgeschlagenen Login-Versuchen: CAPTCHA anzeigen
 - [ ] CAPTCHA muss gelöst werden, bevor weiterer Login-Versuch möglich
-- [ ] Counter resettet nach 10 Minuten oder erfolgreichem Login
+- [ ] Counter resettet nach 30 Minuten oder erfolgreichem Login
 - [ ] Clear Error Message: "Zu viele Versuche. Bitte löse das CAPTCHA."
 
 ### Passwort-Reset Flow
@@ -146,12 +146,12 @@ User-Authentifizierung mit Email/Passwort und Google OAuth, inklusive Email-Veri
 
 ### Rate Limiting während Passwort-Reset
 - **Szenario:** Angreifer versucht massenhaft Passwort-Reset-Emails zu versenden
-- **Verhalten:** Nach 3 Reset-Anfragen in 10 Minuten: CAPTCHA + Delay (30 Sekunden)
+- **Verhalten:** Nach 3 Reset-Anfragen in 30 Minuten: CAPTCHA + Delay (30 Sekunden)
 - **Rationale:** Schutz vor Email-Spam und DoS-Angriffen
 
 ### CAPTCHA-Service nicht erreichbar
 - **Szenario:** CAPTCHA-Provider (z.B. hCaptcha) ist down
-- **Verhalten:** Fallback: Login nach 3 Versuchen für 10 Minuten sperren (ohne CAPTCHA)
+- **Verhalten:** Fallback: Login nach 3 Versuchen für 30 Minuten sperren (ohne CAPTCHA)
 - **Rationale:** User nicht komplett aussperren, aber Rate Limiting bleibt aktiv
 
 ## Technische Anforderungen
