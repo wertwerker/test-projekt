@@ -1,6 +1,10 @@
 # PROJ-1: User Authentication
 
-## Status: 🔵 Planned
+## Status: ✅ Done
+
+**Deployed:** 2026-01-18
+**Implementation Commit:** [799df6e](https://github.com/wertwerker/test-projekt/commit/799df6e)
+**Live URL:** http://localhost:3000 (Development)
 
 ## Übersicht
 User-Authentifizierung mit Email/Passwort und Google OAuth, inklusive Email-Verifizierung. User müssen ihre Email bestätigen, bevor sie sich einloggen können.

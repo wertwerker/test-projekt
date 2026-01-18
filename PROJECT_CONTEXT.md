@@ -47,16 +47,22 @@ Template ready - Start by defining your first feature!
 
 ## Features Roadmap
 
-### Your Features Will Appear Here
+### Completed Features
+- **[PROJ-1] User Authentication** → ✅ Done → [Spec](features/PROJ-1-user-authentication.md)
+  - Email/Password authentication with Supabase
+  - Email verification required before login
+  - Rate limiting (3 attempts + CAPTCHA + 30min lockout)
+  - Password reset flow
+  - Protected routes with middleware
+  - Session management (7-day duration)
 
-Start by defining your first feature using the Requirements Engineer agent:
+### Upcoming Features
+- [PROJ-2] Your Next Feature → ⚪ Backlog
+
+Start by defining your next feature using the Requirements Engineer agent:
 ```
 Read .claude/agents/requirements-engineer.md and create a feature spec for [your feature idea]
 ```
-
-Example roadmap structure:
-- [PROJ-1] Your First Feature → 🔵 Planned → [Spec](/features/PROJ-1-feature-name.md)
-- [PROJ-2] Your Second Feature → ⚪ Backlog
 
 ---
 
