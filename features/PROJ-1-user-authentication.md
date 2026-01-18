@@ -3,11 +3,13 @@
 ## Status: 🟢 In Development
 
 **Frontend Commit:** [799df6e](https://github.com/wertwerker/test-projekt/commit/799df6e)
+**Backend Files:** SQL Migration + TypeScript Types erstellt
 **Dev Server:** http://localhost:3000
 
 ### Nächste Schritte
-- [ ] Backend Developer: RLS Policies prüfen/implementieren
-- [ ] User Testing
+- [x] Backend Developer: RLS Policies implementiert ✅
+- [ ] **USER ACTION REQUIRED:** Migration in Supabase ausführen (siehe [Setup Guide](../supabase/SETUP.md))
+- [ ] User Testing (nach Migration)
 - [ ] QA Engineer: Acceptance Criteria testen
 - [ ] DevOps: Production Deployment
 
