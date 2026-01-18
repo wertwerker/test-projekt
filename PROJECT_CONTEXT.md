@@ -47,14 +47,12 @@ Template ready - Start by defining your first feature!
 
 ## Features Roadmap
 
-### Completed Features
-- **[PROJ-1] User Authentication** → ✅ Done → [Spec](features/PROJ-1-user-authentication.md)
-  - Email/Password authentication with Supabase
-  - Email verification required before login
-  - Rate limiting (3 attempts + CAPTCHA + 30min lockout)
-  - Password reset flow
-  - Protected routes with middleware
-  - Session management (7-day duration)
+### In Development
+- **[PROJ-1] User Authentication** → 🟢 In Development → [Spec](features/PROJ-1-user-authentication.md)
+  - Frontend implementation completed
+  - Backend/RLS policies pending review
+  - QA testing pending
+  - Features: Email/Password auth, email verification, rate limiting, password reset, protected routes
 
 ### Upcoming Features
 - [PROJ-2] Your Next Feature → ⚪ Backlog
