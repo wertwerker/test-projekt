@@ -8,8 +8,8 @@
 
 ### Nächste Schritte
 - [x] Backend Developer: RLS Policies implementiert ✅
-- [ ] **USER ACTION REQUIRED:** Migration in Supabase ausführen (siehe [Setup Guide](../supabase/SETUP.md))
-- [ ] User Testing (nach Migration)
+- [x] Migration in Supabase ausgeführt ✅
+- [ ] User Testing
 - [ ] QA Engineer: Acceptance Criteria testen
 - [ ] DevOps: Production Deployment
 
@@ -525,5 +525,323 @@ NEXT_PUBLIC_HCAPTCHA_SITE_KEY=xxx (für CAPTCHA)
 1. ✅ **Solution Architect:** Database-Schema + Component-Architecture designen (FERTIG)
 2. **Backend Dev:** Supabase Auth konfigurieren (Dashboard-Setup)
 3. **Frontend Dev:** Auth-Pages + Forms + Protected Routes bauen
-4. **QA Engineer:** Feature gegen diese Spec testen
+4. ✅ **QA Engineer:** Feature gegen diese Spec testen (FERTIG - siehe QA Report unten)
 5. **DevOps:** Environment Variables + Deployment
+
+---
+
+## QA Test Results
+
+**Tested:** 2026-01-19
+**QA Engineer:** Claude QA Agent
+**App URL:** http://localhost:3000
+**Supabase Project:** cllagjxlbltwtwvtcjsw
+
+---
+
+## Acceptance Criteria Status
+
+### Registration Flow (Email/Passwort)
+
+| AC | Status | Details |
+|----|--------|---------|
+| Registration-Formular hat Felder: Email, Passwort, Passwort wiederholen | PASS | `/src/app/signup/page.tsx` - Alle drei Felder vorhanden (Zeile 150-194) |
+| Passwort-Validierung: Mindestens 8 Zeichen, 1 Grossbuchstabe, 1 Ziffer | PASS | `/src/lib/validations/auth.ts` - Regex `/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/` implementiert (Zeile 24-27) |
+| Email-Validierung: Gueltiges Email-Format | PASS | Zod `.email()` Validierung implementiert (Zeile 19-20) |
+| Bei erfolgreicher Registration: Bestaetigungs-Email versenden | PASS | Supabase `signUp()` mit `emailRedirectTo` konfiguriert (Zeile 38-44) |
+| Success-Message: "Bitte bestaetige deine Email..." | PASS | Success-Screen mit Anleitung implementiert (Zeile 75-118) |
+| User wird in Supabase Auth Tabelle angelegt | PASS | Verifiziert via SQL - User existiert in `auth.users` |
+| User-Status: `email_confirmed = false` bis Verifizierung | PASS | `email_confirmed_at` ist NULL bis Klick auf Verification-Link |
+
+### Registration Flow (Google OAuth)
+
+| AC | Status | Details |
+|----|--------|---------|
+| "Sign up with Google" Button vorhanden | N/A | OPTIONAL - Nicht implementiert (wie spezifiziert) |
+| OAuth Flow oeffnet Google-Login | N/A | OPTIONAL - Nicht implementiert |
+| Nach erfolgreicher OAuth: User wird automatisch angelegt | N/A | OPTIONAL |
+| Google-User ueberspringt Email-Verifizierung | N/A | OPTIONAL |
+| Nach Success: Redirect zu Dashboard/Home | N/A | OPTIONAL |
+
+**Hinweis:** Google OAuth wurde als OPTIONAL markiert und ist nicht implementiert - dies ist KEIN Bug.
+
+### Email-Verifizierung
+
+| AC | Status | Details |
+|----|--------|---------|
+| Bestaetigungs-Email enthaelt klickbaren Link mit Token | PASS | Supabase Email-Service sendet Verification-Link |
+| Link-Klick setzt `email_confirmed = true` in Supabase | PASS | Verifiziert - `email_confirmed_at` wird gesetzt nach Klick |
+| Success-Page: "Email verifiziert! Du kannst dich jetzt einloggen." | FAIL | `/verify-email` Route existiert NICHT |
+| Expired-Link-Handling: Falls Token abgelaufen, neuen Link anfordern | FAIL | Keine Expired-Link-Handling-Page implementiert |
+
+### Login Flow (Email/Passwort)
+
+| AC | Status | Details |
+|----|--------|---------|
+| Login-Formular hat Felder: Email, Passwort | PASS | `/src/app/login/page.tsx` - Beide Felder vorhanden (Zeile 203-237) |
+| Bei unverifizierter Email: Error "Bitte verifiziere erst deine Email" | PASS | Error-Handling implementiert (Zeile 144-148) |
+| Bei falschen Credentials: Error "Email oder Passwort falsch" | PASS | "Ungueltige E-Mail oder Passwort" Message (Zeile 150) |
+| Nach erfolgreichem Login: Session wird erstellt (7 Tage Dauer) | PASS | Supabase Standard-Session-Dauer |
+| Redirect zu Dashboard/Home nach Login | PASS | `window.location.href = "/"` (Zeile 164) |
+
+### Login Flow (Google OAuth)
+
+| AC | Status | Details |
+|----|--------|---------|
+| "Sign in with Google" Button vorhanden | N/A | OPTIONAL - Nicht implementiert |
+| OAuth Flow identisch zu Registration | N/A | OPTIONAL |
+| Bei existierendem Google-Account: Automatischer Login | N/A | OPTIONAL |
+| Session wird erstellt (7 Tage Dauer) | N/A | OPTIONAL |
+| Redirect zu Dashboard/Home nach Login | N/A | OPTIONAL |
+
+### Rate Limiting & CAPTCHA
+
+| AC | Status | Details |
+|----|--------|---------|
+| Nach 3 fehlgeschlagenen Login-Versuchen: CAPTCHA anzeigen | PASS | `MAX_ATTEMPTS = 3`, CAPTCHA wird angezeigt (Zeile 16, 123-124) |
+| CAPTCHA muss geloest werden, bevor weiterer Login-Versuch moeglich | PASS | Check auf `captchaToken` vor Login (Zeile 101-105) |
+| Counter resettet nach 30 Minuten oder erfolgreichem Login | PASS | `LOCKOUT_DURATION = 30 * 60 * 1000`, Reset bei Success (Zeile 156-159) |
+| Clear Error Message: "Zu viele Versuche. Bitte loese das CAPTCHA." | PASS | Message implementiert (Zeile 128) |
+
+### Passwort-Reset Flow
+
+| AC | Status | Details |
+|----|--------|---------|
+| "Passwort vergessen?" Link auf Login-Seite | PASS | Link zu `/reset-password` vorhanden (Zeile 220-225) |
+| Reset-Formular: Email eingeben | PASS | Email-Input im Request-Mode (Zeile 241-255) |
+| Bei gueltiger Email: Reset-Link per Email versenden | PASS | `resetPasswordForEmail()` implementiert (Zeile 64-69) |
+| Reset-Link oeffnet Formular: Neues Passwort + Wiederholen | PASS | Reset-Mode mit beiden Feldern (Zeile 175-207) |
+| Passwort-Validierung identisch zu Registration | PASS | Gleiches Zod-Schema verwendet (Zeile 43-55 in auth.ts) |
+| Nach erfolgreichem Reset: Automatisch einloggen + Redirect zu Dashboard | FAIL | Redirect zu `/login` statt automatischer Login (Zeile 101) |
+| Success-Message: "Passwort erfolgreich geaendert" | FAIL | Keine Success-Message, direkter Redirect |
+
+### Session Management
+
+| AC | Status | Details |
+|----|--------|---------|
+| Session-Dauer: 7 Tage (168 Stunden) | PASS | Supabase Standard-Konfiguration |
+| Session bleibt nach Browser-Reload erhalten | PASS | Cookie-basierte Session via Supabase SSR |
+| Nach Session-Ablauf: Redirect zu Login mit Message "Session abgelaufen" | FAIL | Keine spezifische "Session abgelaufen" Message implementiert |
+| Logout-Button loescht Session sofort | PASS | `signOut()` implementiert in `page.tsx` (Zeile 38-41) |
+
+### Logout Flow
+
+| AC | Status | Details |
+|----|--------|---------|
+| Logout-Button in Header/Navigation sichtbar (nur fuer eingeloggte User) | PASS | "Abmelden" Button nur wenn `user` existiert (Zeile 93-95) |
+| Klick auf Logout: Session wird geloescht | PASS | `supabase.auth.signOut()` aufgerufen |
+| Redirect zu Login-Seite nach Logout | PASS | `window.location.href = "/login"` (Zeile 40) |
+| Success-Message: "Du wurdest ausgeloggt" | FAIL | Keine Success-Message nach Logout |
+
+### UI/UX
+
+| AC | Status | Details |
+|----|--------|---------|
+| Loading-States waehrend API-Calls (Spinner/Disabled Buttons) | PASS | `isLoading` State, Buttons disabled, "Wird erstellt..." Text |
+| Error-Messages sind klar und hilfreich | PASS | Deutsche Error-Messages mit Kontext |
+| Success-Messages sind sichtbar (Toast/Banner) | PARTIAL | Alert-Components verwendet, aber keine Toast-Notifications |
+| Responsive Design: Mobile + Desktop optimiert | PASS | Tailwind responsive classes, `max-w-md` Container |
+| Accessibility: Keyboard-Navigation, ARIA-Labels | PASS | Native HTML form elements, Label-Verknuepfung |
+
+---
+
+## Edge Cases Status
+
+### EC-1: Duplicate Email Registration
+| Status | Details |
+|--------|---------|
+| PASS | Error "Diese E-Mail-Adresse ist bereits registriert. Moechten Sie sich anmelden?" mit Link zu Login (Zeile 47-54) |
+
+### EC-2: Unverifizierte Email + Login-Versuch
+| Status | Details |
+|--------|---------|
+| PARTIAL | Error wird angezeigt, aber KEIN "Neue Email senden?" Button implementiert |
+
+### EC-3: Expired Email-Verification-Link
+| Status | Details |
+|--------|---------|
+| FAIL | Keine `/verify-email` Seite mit Expired-Link-Handling |
+
+### EC-4: Expired Password-Reset-Link
+| Status | Details |
+|--------|---------|
+| FAIL | Keine spezifische Error-Seite fuer abgelaufene Reset-Links |
+
+### EC-5: Rate Limiting waehrend Passwort-Reset
+| Status | Details |
+|--------|---------|
+| FAIL | Kein Rate Limiting auf Reset-Password-Anfragen implementiert |
+
+### EC-6: CAPTCHA-Service nicht erreichbar
+| Status | Details |
+|--------|---------|
+| PASS | Fallback: 30 Minuten Lockout wenn CAPTCHA fehlschlaegt (Zeile 133-139) |
+
+---
+
+## Bugs Found
+
+### BUG-1: /verify-email Route fehlt
+- **Severity:** High
+- **Location:** `/src/app/` - Keine `verify-email/page.tsx` vorhanden
+- **Steps to Reproduce:**
+  1. Registriere neuen User
+  2. Klicke auf Verification-Link in Email
+  3. Expected: Success-Page "/verify-email" mit Bestaetigung
+  4. Actual: Auth-Callback leitet direkt zu "/" weiter, keine Bestaetigung sichtbar
+- **Impact:** User erhaelt keine Bestaetigung dass Email verifiziert wurde
+- **Recommendation:** `/verify-email` Route erstellen mit Success/Error States
+
+### BUG-2: Kein automatischer Login nach Passwort-Reset
+- **Severity:** Medium
+- **Location:** `/src/app/reset-password/page.tsx` Zeile 101
+- **Steps to Reproduce:**
+  1. Fordere Passwort-Reset an
+  2. Setze neues Passwort
+  3. Expected: Automatischer Login + Redirect zu Dashboard
+  4. Actual: Redirect zu Login-Seite, User muss sich manuell einloggen
+- **Impact:** Schlechte User Experience
+- **Recommendation:** Nach `updateUser()` Session pruefen und zu "/" redirecten
+
+### BUG-3: Keine Success-Message nach Logout
+- **Severity:** Low
+- **Location:** `/src/app/page.tsx` Zeile 38-41
+- **Steps to Reproduce:**
+  1. Als eingeloggter User auf "Abmelden" klicken
+  2. Expected: Success-Message "Du wurdest ausgeloggt"
+  3. Actual: Direkter Redirect ohne Feedback
+- **Impact:** User erhaelt keine Bestaetigung
+- **Recommendation:** Toast-Notification oder URL-Parameter fuer Success-Message
+
+### BUG-4: "Neue Verifizierungs-Email senden" Button fehlt
+- **Severity:** Medium
+- **Location:** `/src/app/login/page.tsx` Zeile 144-148
+- **Steps to Reproduce:**
+  1. Registriere User, verifiziere Email NICHT
+  2. Versuche Login
+  3. Expected: Error mit "Neue Email senden?" Button
+  4. Actual: Nur Error-Text, kein Button zum erneuten Senden
+- **Impact:** User kann nicht einfach neue Verification-Email anfordern
+- **Recommendation:** Button hinzufuegen der `resend()` aufruft
+
+### BUG-5: Rate Limiting nur Client-Side (localStorage)
+- **Severity:** High (Security)
+- **Location:** `/src/app/login/page.tsx` Zeile 40-66
+- **Steps to Reproduce:**
+  1. Mache 3 fehlgeschlagene Login-Versuche
+  2. Loesche localStorage
+  3. Expected: Rate Limit bleibt aktiv (Server-Side)
+  4. Actual: Rate Limit ist zurueckgesetzt, kann weiter versuchen
+- **Impact:** Rate Limiting kann leicht umgangen werden
+- **Recommendation:** Server-Side Rate Limiting in Supabase oder Edge Function implementieren
+
+### BUG-6: Profile wird nicht automatisch erstellt
+- **Severity:** Medium
+- **Location:** Database Trigger `on_auth_user_created`
+- **Steps to Reproduce:**
+  1. Existierender User in `auth.users` (ID: 7cc8cb4b-83d2-4311-8b54-951acf0e2978)
+  2. Query `public.profiles` fuer diesen User
+  3. Expected: Profile existiert (Trigger sollte erstellen)
+  4. Actual: Keine Profile-Zeile vorhanden
+- **Impact:** User-Metadaten koennen nicht gespeichert werden
+- **Recommendation:** Trigger ueberpruefen, ggf. manuell Profile fuer existierende User erstellen
+
+---
+
+## Security Advisors (Supabase)
+
+Die folgenden Security-Warnungen wurden von Supabase gemeldet:
+
+### WARN-1: Function Search Path Mutable
+- **Functions:** `handle_new_user`, `handle_updated_at`
+- **Issue:** Search path nicht explizit gesetzt
+- **Risk:** Potential SQL injection durch Schema-Manipulation
+- **Remediation:** https://supabase.com/docs/guides/database/database-linter?lint=0011_function_search_path_mutable
+
+### WARN-2: Leaked Password Protection Disabled
+- **Issue:** HaveIBeenPwned Password-Check ist deaktiviert
+- **Risk:** User koennen kompromittierte Passwoerter verwenden
+- **Remediation:** In Supabase Dashboard aktivieren unter Auth Settings
+
+---
+
+## Database Security Status
+
+### RLS Policies (profiles Table)
+| Policy | Status | Details |
+|--------|--------|---------|
+| Users can view own profile | PASS | `auth.uid() = id` |
+| Users can insert own profile | PASS | `auth.uid() = id` |
+| Users can update own profile | PASS | `auth.uid() = id` |
+| Users can delete own profile | PASS | `auth.uid() = id` |
+
+**RLS ist aktiviert** und alle Policies sind korrekt implementiert.
+
+---
+
+## Summary
+
+| Category | Passed | Failed | Total |
+|----------|--------|--------|-------|
+| Registration Flow (Email) | 7 | 0 | 7 |
+| Registration Flow (OAuth) | N/A | N/A | 5 (Optional) |
+| Email-Verifizierung | 2 | 2 | 4 |
+| Login Flow (Email) | 5 | 0 | 5 |
+| Login Flow (OAuth) | N/A | N/A | 5 (Optional) |
+| Rate Limiting & CAPTCHA | 4 | 0 | 4 |
+| Passwort-Reset Flow | 5 | 2 | 7 |
+| Session Management | 3 | 1 | 4 |
+| Logout Flow | 3 | 1 | 4 |
+| UI/UX | 4 | 1 | 5 |
+| **Total (ohne OAuth)** | **33** | **7** | **40** |
+
+### Bugs Summary
+- **Critical:** 0
+- **High:** 2 (BUG-1: verify-email fehlt, BUG-5: Client-Side Rate Limiting)
+- **Medium:** 3 (BUG-2, BUG-4, BUG-6)
+- **Low:** 1 (BUG-3)
+
+---
+
+## Production-Ready Decision
+
+### NICHT PRODUCTION-READY
+
+**Grund:** 2 High-Severity Bugs muessen zuerst gefixt werden:
+
+1. **BUG-1:** `/verify-email` Route fehlt - User haben keine Bestaetigung nach Email-Verifizierung
+2. **BUG-5:** Rate Limiting ist nur Client-Side und kann leicht umgangen werden (Security Risk)
+
+### Empfohlene Reihenfolge fuer Fixes
+
+1. **CRITICAL FIX:** BUG-5 - Server-Side Rate Limiting implementieren
+2. **HIGH FIX:** BUG-1 - `/verify-email` Route erstellen
+3. **MEDIUM FIX:** BUG-4 - "Neue Email senden" Button hinzufuegen
+4. **MEDIUM FIX:** BUG-2 - Auto-Login nach Passwort-Reset
+5. **MEDIUM FIX:** BUG-6 - Profile-Trigger ueberpruefen
+6. **LOW FIX:** BUG-3 - Logout Success-Message
+
+### Security Fixes (Supabase Dashboard)
+
+1. **Leaked Password Protection aktivieren** - Verhindert Verwendung kompromittierter Passwoerter
+2. **Function Search Path fixen** - SQL Injection Risiko minimieren
+
+---
+
+## Tested Files
+
+| File | Purpose |
+|------|---------|
+| `/src/app/signup/page.tsx` | Registration UI |
+| `/src/app/login/page.tsx` | Login UI + Rate Limiting |
+| `/src/app/reset-password/page.tsx` | Password Reset UI |
+| `/src/app/page.tsx` | Home/Dashboard + Logout |
+| `/src/app/auth/callback/route.ts` | OAuth Callback Handler |
+| `/src/middleware.ts` | Protected Routes |
+| `/src/lib/validations/auth.ts` | Zod Validation Schemas |
+| `/src/lib/supabase.ts` | Supabase Client |
+
+---
+
+**QA Report erstellt von:** Claude QA Agent
+**Datum:** 2026-01-19
