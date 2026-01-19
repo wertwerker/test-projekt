@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import Link from "next/link"
-import { createClient } from "@/lib/supabase"
 import { loginSchema, type LoginInput } from "@/lib/validations/auth"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,19 +13,17 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import HCaptcha from "@hcaptcha/react-hcaptcha"
 
 const MAX_ATTEMPTS = 3
-const LOCKOUT_DURATION = 30 * 60 * 1000 // 30 minutes in milliseconds
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [failedAttempts, setFailedAttempts] = useState(0)
-  const [isLockedOut, setIsLockedOut] = useState(false)
-  const [lockoutEnd, setLockoutEnd] = useState<number | null>(null)
   const [showCaptcha, setShowCaptcha] = useState(false)
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
-  const [remainingTime, setRemainingTime] = useState<string>("")
-
-  const supabase = createClient()
+  const [serverRateLimitError, setServerRateLimitError] = useState<{
+    locked: boolean
+    remaining_seconds: number
+    message: string
+  } | null>(null)
 
   const {
     register,
@@ -36,68 +33,26 @@ export default function LoginPage() {
     resolver: zodResolver(loginSchema),
   })
 
-  // Load rate limit data from localStorage
+  // Check for server-side rate limit on mount
   useEffect(() => {
-    const storedAttempts = localStorage.getItem("loginAttempts")
-    const storedLockoutEnd = localStorage.getItem("lockoutEnd")
-
-    if (storedAttempts) {
-      const attempts = parseInt(storedAttempts, 10)
-      setFailedAttempts(attempts)
-      if (attempts >= MAX_ATTEMPTS) {
-        setShowCaptcha(true)
+    const checkServerRateLimit = async () => {
+      try {
+        // Make a HEAD request to check rate limit without actually logging in
+        const response = await fetch('/login', { method: 'HEAD' })
+        if (response.status === 429) {
+          const data = await response.json()
+          setServerRateLimitError(data)
+        }
+      } catch (err) {
+        // Ignore errors - user can still try to login
+        console.error('[Login] Error checking rate limit:', err)
       }
     }
 
-    if (storedLockoutEnd) {
-      const lockoutEndTime = parseInt(storedLockoutEnd, 10)
-      const now = Date.now()
-
-      if (now < lockoutEndTime) {
-        setIsLockedOut(true)
-        setLockoutEnd(lockoutEndTime)
-      } else {
-        // Lockout expired, clear data
-        localStorage.removeItem("loginAttempts")
-        localStorage.removeItem("lockoutEnd")
-        setFailedAttempts(0)
-        setShowCaptcha(false)
-      }
-    }
+    checkServerRateLimit()
   }, [])
 
-  // Update remaining time for lockout
-  useEffect(() => {
-    if (!isLockedOut || !lockoutEnd) return
-
-    const interval = setInterval(() => {
-      const now = Date.now()
-      const remaining = lockoutEnd - now
-
-      if (remaining <= 0) {
-        setIsLockedOut(false)
-        setLockoutEnd(null)
-        setFailedAttempts(0)
-        setShowCaptcha(false)
-        localStorage.removeItem("loginAttempts")
-        localStorage.removeItem("lockoutEnd")
-        setRemainingTime("")
-      } else {
-        const minutes = Math.floor(remaining / 60000)
-        const seconds = Math.floor((remaining % 60000) / 1000)
-        setRemainingTime(`${minutes}:${seconds.toString().padStart(2, "0")}`)
-      }
-    }, 1000)
-
-    return () => clearInterval(interval)
-  }, [isLockedOut, lockoutEnd])
-
   const onSubmit = async (data: LoginInput) => {
-    if (isLockedOut) {
-      setError(`Account temporär gesperrt. Bitte versuchen Sie es in ${remainingTime} erneut.`)
-      return
-    }
-
     // Check CAPTCHA if required
     if (showCaptcha && !captchaToken) {
       setError("Bitte lösen Sie das CAPTCHA")
@@ -106,67 +61,53 @@ export default function LoginPage() {
 
     setIsLoading(true)
     setError(null)
+    setServerRateLimitError(null)
 
     try {
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
+      // Call our login API that handles rate limiting
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: data.email,
+          password: data.password,
+        }),
       })
 
-      if (authError) {
-        // Increment failed attempts
-        const newAttempts = failedAttempts + 1
-        setFailedAttempts(newAttempts)
-        localStorage.setItem("loginAttempts", newAttempts.toString())
+      const responseData = await response.json()
 
-        // Show CAPTCHA after 3 failed attempts
-        if (newAttempts >= MAX_ATTEMPTS) {
-          setShowCaptcha(true)
-
-          // Check if CAPTCHA was solved
-          if (!captchaToken) {
-            setError("Zu viele fehlgeschlagene Versuche. Bitte lösen Sie das CAPTCHA.")
-            setIsLoading(false)
-            return
-          }
-
-          // Lock out after CAPTCHA failure
-          const lockoutEndTime = Date.now() + LOCKOUT_DURATION
-          setIsLockedOut(true)
-          setLockoutEnd(lockoutEndTime)
-          localStorage.setItem("lockoutEnd", lockoutEndTime.toString())
-          setError("Zu viele fehlgeschlagene Versuche. Account für 30 Minuten gesperrt.")
+      if (!response.ok) {
+        // Handle rate limit
+        if (response.status === 429) {
+          setServerRateLimitError(responseData)
+          setError(responseData.message)
           setIsLoading(false)
           return
         }
 
-        // Check for specific error messages
-        if (authError.message.includes("Email not confirmed")) {
-          setError("Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse. Prüfen Sie Ihren Posteingang.")
+        // Handle auth errors
+        if (responseData.error === 'email_not_confirmed') {
+          setError(responseData.message)
           setIsLoading(false)
           return
         }
 
-        setError("Ungültige E-Mail oder Passwort")
+        // Failed login - show CAPTCHA after first failure
+        // Server will handle the actual rate limiting
+        setShowCaptcha(true)
+        setError(responseData.message || "Ungültige E-Mail oder Passwort")
         setIsLoading(false)
         return
       }
 
-      // Successful login - clear rate limit data
-      localStorage.removeItem("loginAttempts")
-      localStorage.removeItem("lockoutEnd")
-      setFailedAttempts(0)
+      // Successful login
       setShowCaptcha(false)
+      setCaptchaToken(null)
 
-      // Check if session exists before redirect
-      if (authData.session) {
-        // Hard redirect to ensure cookies are set properly
-        window.location.href = "/"
-      } else {
-        setError("Login fehlgeschlagen. Bitte versuchen Sie es erneut.")
-        setIsLoading(false)
-      }
+      // Hard redirect to ensure cookies are set properly
+      window.location.href = "/"
     } catch (err) {
+      console.error('[Login] Unexpected error:', err)
       setError("Ein unerwarteter Fehler ist aufgetreten")
       setIsLoading(false)
     }
@@ -180,6 +121,15 @@ export default function LoginPage() {
   const handleCaptchaExpire = () => {
     setCaptchaToken(null)
   }
+
+  // Calculate remaining time display
+  const getRemainingTimeDisplay = () => {
+    if (!serverRateLimitError?.remaining_seconds) return ""
+    const minutes = Math.ceil(serverRateLimitError.remaining_seconds / 60)
+    return `${minutes} Minute${minutes !== 1 ? 'n' : ''}`
+  }
+
+  const isLockedOut = serverRateLimitError?.locked || false
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12">
@@ -197,6 +147,14 @@ export default function LoginPage() {
             {error && (
               <Alert variant="destructive">
                 <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            {isLockedOut && (
+              <Alert variant="destructive">
+                <AlertDescription>
+                  {serverRateLimitError?.message || 'Zu viele fehlgeschlagene Versuche. Bitte versuchen Sie es später erneut.'}
+                </AlertDescription>
               </Alert>
             )}
 
@@ -251,7 +209,12 @@ export default function LoginPage() {
               className="w-full"
               disabled={isLoading || isLockedOut}
             >
-              {isLoading ? "Wird angemeldet..." : isLockedOut ? `Gesperrt (${remainingTime})` : "Anmelden"}
+              {isLoading
+                ? "Wird angemeldet..."
+                : isLockedOut
+                  ? `Gesperrt (${getRemainingTimeDisplay()})`
+                  : "Anmelden"
+              }
             </Button>
           </form>
         </CardContent>
