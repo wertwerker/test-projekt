@@ -6,6 +6,7 @@ import type { NextRequest } from 'next/server'
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
+  const type = requestUrl.searchParams.get('type')
   const next = requestUrl.searchParams.get('next') || '/'
 
   if (code) {
@@ -31,8 +32,32 @@ export async function GET(request: NextRequest) {
     const { error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error) {
-      // Successful authentication - redirect to home or specified next page
+      // Route based on auth type
+      if (type === 'signup') {
+        // Email verification after signup
+        return NextResponse.redirect(new URL('/verify-email?verified=true', requestUrl.origin))
+      }
+
+      if (type === 'recovery') {
+        // Password reset flow
+        return NextResponse.redirect(new URL('/reset-password', requestUrl.origin))
+      }
+
+      // Default: redirect to home or specified next page
       return NextResponse.redirect(new URL(next, requestUrl.origin))
+    }
+
+    // Error during token exchange - likely expired or invalid
+    if (type === 'signup') {
+      return NextResponse.redirect(
+        new URL('/verify-email?error=expired', requestUrl.origin)
+      )
+    }
+
+    if (type === 'recovery') {
+      return NextResponse.redirect(
+        new URL('/reset-password?error=expired', requestUrl.origin)
+      )
     }
   }
 
