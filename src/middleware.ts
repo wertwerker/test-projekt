@@ -164,6 +164,6 @@ function getClientIP(request: NextRequest): string {
     return realIP.trim()
   }
 
-  // Fallback to request IP (Next.js provides this)
-  return request.ip || '127.0.0.1'
+  // Fallback to localhost (development)
+  return '127.0.0.1'
 }

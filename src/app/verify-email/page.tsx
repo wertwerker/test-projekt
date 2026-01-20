@@ -1,5 +1,6 @@
 "use client"
 
+import { Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { CheckCircle2, XCircle, Mail } from "lucide-react"
 import Link from "next/link"
@@ -7,7 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const searchParams = useSearchParams()
   const verified = searchParams.get("verified") === "true"
   const error = searchParams.get("error")
@@ -138,5 +139,13 @@ export default function VerifyEmailPage() {
         </CardFooter>
       </Card>
     </div>
+  )
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center">Loading...</div>}>
+      <VerifyEmailContent />
+    </Suspense>
   )
 }
